@@ -47,6 +47,7 @@ func SecureJoinVFS(root, unsafePath string, vfs VFS) (string, error) {
 
 	var path bytes.Buffer
 	n := 0
+	unsafePathOrig := unsafePath
 	for unsafePath != "" {
 		if n > 255 {
 			return "", &os.PathError{Op: "SecureJoin", Path: root + "/" + unsafePath, Err: syscall.ELOOP}
@@ -66,6 +67,14 @@ func SecureJoinVFS(root, unsafePath string, vfs VFS) (string, error) {
 		// for evaluation. At this point, path.String() doesn't contain any
 		// symlink components.
 		cleanP := filepath.Clean(string(filepath.Separator) + path.String() + p)
+		cleanP2 := filepath.Clean(string(path.String() + p)
+		if !cleanP2.isAbs() {
+			cleanP2 = string(filepath.Separator) + cleanP2
+		}
+		if cleanP != cleanP2 {
+			// Without scoping to root, the resolving of unsafePathOrig traverses outside root
+			return "", errors.New("resolving path traverses outside root. path = " + root + "/" + unsafePathOrig)
+                }
 		if cleanP == string(filepath.Separator) {
 			path.Reset()
 			continue
