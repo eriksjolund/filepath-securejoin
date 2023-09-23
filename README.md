@@ -44,6 +44,9 @@ This library **guarantees** the following:
 * The returned path will always be `filepath.Clean`ed and thus not contain any
   `..` components.
 
+It is assumed that `root` and the `filepath.Clean`ed version of `root`
+resolve to the same directory.
+
 A (trivial) implementation of this function on GNU/Linux systems could be done
 with the following (note that this requires root privileges and is far more
 opaque than the implementation in this library, and also requires that
