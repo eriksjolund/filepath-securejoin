@@ -1,3 +1,3 @@
-module github.com/cyphar/filepath-securejoin
+module github.com/eriksjolund/filepath-securejoin
 
 go 1.13

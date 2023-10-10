@@ -45,6 +45,17 @@ func IsNotExist(err error) bool {
 //
 // "C:\Temp" + "D:\path\to\file.txt" results in "C:\Temp\path\to\file.txt"
 func SecureJoinVFS(root, unsafePath string, vfs VFS) (string, error) {
+  return SecureJoinVFSoptionalScope(root, unsafePath, vfs, true)
+}
+
+// SecureJoinVFSoptionalScope provides the same functionality as the function
+// SecureJoinVFS when the provided boolean scope is set to true. When set to
+// false, the provided root path is not treated as the root of the filesystem.
+// Instead, an error is returned when a path component ".." is resolved from
+// the root directory. An error is also returned when a traversed symlink has
+// a target that is an absolute path.
+
+func SecureJoinVFSoptionalScope(root, unsafePath string, vfs VFS, scoped bool) (string, error) {
 	// Use the os.* VFS implementation if none was specified.
 	if vfs == nil {
 		vfs = osVFS{}
@@ -53,6 +64,7 @@ func SecureJoinVFS(root, unsafePath string, vfs VFS) (string, error) {
 	unsafePath = filepath.FromSlash(unsafePath)
 	var path bytes.Buffer
 	n := 0
+	unsafePathOrig := unsafePath
 	for unsafePath != "" {
 		if n > 255 {
 			return "", &os.PathError{Op: "SecureJoin", Path: root + string(filepath.Separator) + unsafePath, Err: syscall.ELOOP}
@@ -69,6 +81,10 @@ func SecureJoinVFS(root, unsafePath string, vfs VFS) (string, error) {
 			p, unsafePath = unsafePath, ""
 		} else {
 			p, unsafePath = unsafePath[:i], unsafePath[i+1:]
+		}
+
+		if (!scoped && p == ".." && path.String() == "") {
+			return "", errors.New("path resolution traverses outside root. Path: " + root + string(filepath.Separator) + unsafePathOrig)
 		}
 
 		// Create a cleaned path, using the lexical semantics of /../a, to
@@ -105,6 +121,9 @@ func SecureJoinVFS(root, unsafePath string, vfs VFS) (string, error) {
 		}
 		// Absolute symlinks reset any work we've already done.
 		if filepath.IsAbs(dest) {
+			if (!scoped) {
+				return "", errors.New("symlink target is an absolute path: " + dest)
+			}
 			path.Reset()
 		}
 		unsafePath = dest + string(filepath.Separator) + unsafePath
